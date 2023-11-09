@@ -13,6 +13,10 @@ import (
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
 
 	"github.com/gin-gonic/gin"
+
+	_ "github.com/AngelicaNice/HollywoodStarsCRUD/docs"
+	swaggerFiles "github.com/swaggo/files"     // swagger embed files
+	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
 )
 
 type Actors interface {
@@ -47,10 +51,21 @@ func (h *Handler) InitRouter() *gin.Engine {
 		api.Handle(http.MethodPut, "/id", h.UpdateActor)
 		api.Handle(http.MethodDelete, "/id", h.DeleteActor)
 	}
-
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	return r
 }
 
+// Auth godoc
+//
+//	@Summary		Add actor
+//	@Description	add actor info
+//	@Tags			actor
+//	@Accept			json
+//	@Produce		json
+//	@Param			input body domain.Actor true "actor's info"
+//	@Success		201	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/ [post]
 func (h *Handler) AddActor(c *gin.Context) {
 	reqBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -76,6 +91,16 @@ func (h *Handler) AddActor(c *gin.Context) {
 	c.Writer.WriteHeader(http.StatusCreated)
 }
 
+// Auth godoc
+//
+//	@Summary		Get all actors
+//	@Description	get all actors info
+//	@Tags			actor
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/ [get]
 func (h *Handler) GetAllActors(c *gin.Context) {
 	actors, err := h.actorsService.GetAllActors(context.TODO())
 	if err != nil {
@@ -93,6 +118,17 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 	c.Writer.Write(response)
 }
 
+// Auth godoc
+//
+//	@Summary		Get actor by id
+//	@Description	Get actor info by id
+//	@Tags			actor
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	query	int	false 	"int valid"	minimum(1)
+//	@Success		200	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/id [get]
 func (h *Handler) GetActor(c *gin.Context) {
 	param := c.Request.URL.RawQuery
 	param = param[3:]
@@ -123,6 +159,18 @@ func (h *Handler) GetActor(c *gin.Context) {
 	c.Writer.Write(response)
 }
 
+// Auth godoc
+//
+//	@Summary		Update actor by id
+//	@Description	Update actor info by id
+//	@Tags			actor
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	query	int	false 	"int valid"	minimum(1)
+//	@Param			input body domain.UpdateActorInfo true "new actor's info"
+//	@Success		200	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/id [put]
 func (h *Handler) UpdateActor(c *gin.Context) {
 	param := c.Request.URL.RawQuery
 	param = param[3:]
@@ -154,6 +202,17 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 	c.Writer.WriteHeader(http.StatusOK)
 }
 
+// Auth godoc
+//
+//	@Summary		Delete actor by id
+//	@Description	Delete actor info by id
+//	@Tags			actor
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	query	int	false 	"int valid"	minimum(1)
+//	@Success		200	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/id [delete]
 func (h *Handler) DeleteActor(c *gin.Context) {
 	id, err := getIdFromRequest(c.Request)
 	if err != nil {

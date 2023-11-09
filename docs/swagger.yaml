@@ -1,0 +1,205 @@
+basePath: /actors
+definitions:
+  domain.Actor:
+    properties:
+      birth_place:
+        type: string
+      birth_year:
+        type: integer
+      id:
+        type: integer
+      language:
+        type: string
+      name:
+        type: string
+      rest_year:
+        type: integer
+      sex:
+        type: string
+      surname:
+        type: string
+    type: object
+  domain.UpdateActorInfo:
+    properties:
+      language:
+        type: string
+      name:
+        type: string
+      rest_year:
+        type: integer
+      sex:
+        type: string
+      surname:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API server for HollywoodStars Application.
+  title: Swagger HollywoodStars App API
+  version: "1.0"
+paths:
+  /:
+    get:
+      consumes:
+      - application/json
+      description: get all actors info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: Get all actors
+      tags:
+      - actor
+    post:
+      consumes:
+      - application/json
+      description: add actor info
+      parameters:
+      - description: actor's info
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Actor'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: Add actor
+      tags:
+      - actor
+  /id:
+    delete:
+      consumes:
+      - application/json
+      description: Delete actor info by id
+      parameters:
+      - description: int valid
+        in: query
+        minimum: 1
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: Delete actor by id
+      tags:
+      - actor
+    get:
+      consumes:
+      - application/json
+      description: Get actor info by id
+      parameters:
+      - description: int valid
+        in: query
+        minimum: 1
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: Get actor by id
+      tags:
+      - actor
+    put:
+      consumes:
+      - application/json
+      description: Update actor info by id
+      parameters:
+      - description: int valid
+        in: query
+        minimum: 1
+        name: id
+        type: integer
+      - description: new actor's info
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateActorInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: Update actor by id
+      tags:
+      - actor
+swagger: "2.0"

@@ -12,6 +12,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
+//	@title			Swagger HollywoodStars App API
+//	@version		1.0
+//	@description	API server for HollywoodStars Application.
+
+//	@host		localhost:8080
+//	@BasePath	/actors
+
 func main() {
 	// init db
 	db, err := database.CreateDBConnection(
