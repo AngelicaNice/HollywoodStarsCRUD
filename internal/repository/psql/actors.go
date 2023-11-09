@@ -50,7 +50,6 @@ func (a *Actors) Create(ctx context.Context, actor domain.Actor) error {
 	}
 	setQuery := strings.Join(setColumns, ", ")
 	query := fmt.Sprintf("INSERT INTO actors (%s) values (%s)", setQuery, argIds)
-	fmt.Println(query)
 	_, err := a.db.Exec(query, args...)
 
 	return err
@@ -128,11 +127,16 @@ func (a *Actors) Update(ctx context.Context, id int64, inp domain.UpdateActorInf
 	args = append(args, id)
 
 	_, err := a.db.Exec(query, args...)
+	if err == sql.ErrNoRows {
+		return domain.ActorNotFound
+	}
 	return err
 }
 
 func (a *Actors) Delete(ctx context.Context, id int64) error {
 	_, err := a.db.Exec("DELETE FROM actors WHERE id=$1", id)
-
+	if err == sql.ErrNoRows {
+		return domain.ActorNotFound
+	}
 	return err
 }
