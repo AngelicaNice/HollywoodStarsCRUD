@@ -7,13 +7,23 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/AngelicaNice/HollywoodStarsCRUD/docs"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
+	"github.com/AngelicaNice/TTLCache/cache"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	swaggerFiles "github.com/swaggo/files"     // swagger embed files
 	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
+)
+
+var (
+	Cache = cache.New()
+)
+
+const (
+	TTL = 15 * time.Second
 )
 
 type Actors interface {
@@ -78,7 +88,8 @@ func (h *Handler) AddActor(c *gin.Context) {
 		return
 	}
 
-	if _, err := h.actorsService.Create(context.TODO(), actor); err != nil {
+	id, err := h.actorsService.Create(context.TODO(), actor)
+	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
 			"issue":   "internal error",
@@ -89,6 +100,8 @@ func (h *Handler) AddActor(c *gin.Context) {
 	}
 
 	c.Writer.WriteHeader(http.StatusCreated)
+
+	Cache.Set(fmt.Sprintf("%d", id), actor, TTL)
 }
 
 // Auth godoc
@@ -126,6 +139,10 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 
 	c.Writer.Header().Add("Content-Type", "application/json")
 	c.Writer.Write(response)
+
+	for _, a := range actors {
+		Cache.Set(fmt.Sprintf("%d", a.ID), a, TTL)
+	}
 }
 
 // Auth godoc
@@ -151,22 +168,26 @@ func (h *Handler) GetActor(c *gin.Context) {
 		return
 	}
 
-	actor, err := h.actorsService.GetByID(context.TODO(), id)
-	if err != nil {
-		if errors.Is(err, domain.ErrActorNotFound) {
-			issue := fmt.Sprintf("actor with id=%d not found", id)
-			log.WithFields(log.Fields{
-				"handler": "GetActor",
-				"issue":   issue,
-			}).Error(err)
-			c.Writer.WriteHeader(http.StatusBadRequest)
+	actor, err := Cache.Get(fmt.Sprintf("%d", id))
 
+	if err != nil {
+		actor, err = h.actorsService.GetByID(context.TODO(), id)
+		if err != nil {
+			if errors.Is(err, domain.ErrActorNotFound) {
+				issue := fmt.Sprintf("actor with id=%d not found", id)
+				log.WithFields(log.Fields{
+					"handler": "GetActor",
+					"issue":   issue,
+				}).Error(err)
+				c.Writer.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			c.Writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		c.Writer.WriteHeader(http.StatusInternalServerError)
-
-		return
+		Cache.Set(fmt.Sprintf("%d", id), actor, TTL)
+	} else {
+		fmt.Println("actor got from cache")
 	}
 
 	response, err := json.Marshal(actor)
@@ -239,6 +260,10 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 	}
 
 	c.Writer.WriteHeader(http.StatusOK)
+
+	if _, err := Cache.Get(fmt.Sprintf("%d", id)); err == nil {
+		Cache.Delete(fmt.Sprintf("%d", id))
+	}
 }
 
 // Auth godoc
@@ -287,6 +312,10 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 	}
 
 	c.Writer.WriteHeader(http.StatusOK)
+
+	if _, err := Cache.Get(fmt.Sprintf("%d", id)); err == nil {
+		Cache.Delete(fmt.Sprintf("%d", id))
+	}
 }
 
 func getIdFromRequest(r *http.Request) (int64, error) {

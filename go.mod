@@ -7,6 +7,7 @@ toolchain go1.21.1
 require github.com/lib/pq v1.10.9
 
 require (
+	github.com/AngelicaNice/TTLCache v0.0.0-20231009193356-78cface4f374 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/PuerkitoBio/purell v1.2.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
