@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
+	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/config"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/repository/psql"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/service"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/rest"
@@ -12,6 +14,11 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	_ "github.com/lib/pq"
+)
+
+const (
+	CONFIG_DIR  = "configs"
+	CONFIG_FILE = "main"
 )
 
 func init() {
@@ -27,17 +34,22 @@ func init() {
 // @host		localhost:8080
 // @BasePath	/actors
 func main() {
+	cfg, err := config.NewConfig(CONFIG_DIR, CONFIG_FILE)
+	if err != nil {
+		log.WithField("config | env", "wrong config | env").Fatal(err)
+	}
+
 	db, err := database.CreateDBConnection(
 		database.ConnectionInfo{
-			Host:     "0.0.0.0",
-			Port:     5432,
-			Username: "postgres",
-			DBName:   "postgres",
-			SSLMode:  "disable",
-			Password: "goLANGni1nja",
+			Host:     cfg.DB.Host,
+			Port:     cfg.DB.Port,
+			Username: cfg.DB.Username,
+			DBName:   cfg.DB.Name,
+			SSLMode:  cfg.DB.SSLMode,
+			Password: cfg.DB.Password,
 		})
 	if err != nil {
-		log.Fatal(err)
+		log.WithField("db connection", "failed").Fatal(err)
 	}
 	defer db.Close()
 
@@ -46,7 +58,7 @@ func main() {
 	handler := rest.NewHandler(actorsService)
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler: handler.InitRouter(),
 	}
 

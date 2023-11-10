@@ -83,7 +83,7 @@ func (h *Handler) AddActor(c *gin.Context) {
 	if err = json.Unmarshal(reqBytes, &actor); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
-			"issue":   "failed unmarshaling request body",
+			"issue":   "failed unmarshalling request body",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
 		return
@@ -224,7 +224,7 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 	if err = json.Unmarshal(reqBytes, &src); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
-			"issue":   "failed unmarshaling request body",
+			"issue":   "failed unmarshalling request body",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
 		return
