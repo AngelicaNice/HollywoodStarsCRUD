@@ -12,19 +12,14 @@ import (
 	_ "github.com/AngelicaNice/HollywoodStarsCRUD/docs"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
 	"github.com/AngelicaNice/TTLCache/cache"
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
-	swaggerFiles "github.com/swaggo/files"     // swagger embed files
-	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-var (
-	Cache = cache.New()
-)
+var Cache = cache.New()
 
-const (
-	TTL = 15 * time.Second
-)
+const TTL = 15 * time.Second
 
 type Actors interface {
 	Create(ctx context.Context, actor domain.Actor) (int64, error)
@@ -44,21 +39,29 @@ func NewHandler(a Actors) *Handler {
 	}
 }
 
-func (h *Handler) InitRouter() *gin.Engine {
-	r := gin.Default()
+func (h *Handler) InitRouter() *mux.Router {
+	r := mux.NewRouter()
+	r.Use(loggingMiddleware)
 
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
-
-	api := r.Group("/actors")
+	api := r.PathPrefix("/actors").Subrouter()
 	{
-		api.Handle(http.MethodPost, "", h.AddActor)
-		api.Handle(http.MethodGet, "", h.GetAllActors)
-		api.Handle(http.MethodGet, "/id", h.GetActor)
-		api.Handle(http.MethodPut, "/id", h.UpdateActor)
-		api.Handle(http.MethodDelete, "/id", h.DeleteActor)
+		a := api.HandleFunc("/id/{id:[0-9]+}", h.GetActor).Methods(http.MethodGet)
+		s, _ := a.GetPathTemplate()
+		fmt.Println(s)
+		a = api.HandleFunc("/id/{id:[0-9]+}", h.UpdateActor).Methods(http.MethodPut)
+		s, _ = a.GetPathRegexp()
+		fmt.Println(s)
+		a = api.HandleFunc("/id/{id:[0-9]+}", h.DeleteActor).Methods(http.MethodDelete)
+		s, _ = a.GetPathRegexp()
+		fmt.Println(s)
+		a = api.HandleFunc("", h.AddActor).Methods(http.MethodPost)
+		s, _ = a.GetPathRegexp()
+		fmt.Println(s)
+		a = api.HandleFunc("", h.GetAllActors).Methods(http.MethodGet)
+		s, _ = a.GetPathRegexp()
+		fmt.Println(s)
 	}
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	return r
 }
@@ -74,16 +77,16 @@ func (h *Handler) InitRouter() *gin.Engine {
 //	@Success		201	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/ [post]
-func (h *Handler) AddActor(c *gin.Context) {
+func (h *Handler) AddActor(w http.ResponseWriter, r *http.Request) {
 	var actor domain.Actor
 
-	decoder := json.NewDecoder(c.Request.Body)
+	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&actor); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
 			"issue":   "failed unmarshalling request body",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
@@ -94,12 +97,12 @@ func (h *Handler) AddActor(c *gin.Context) {
 			"handler": "AddActor",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
 
 	Cache.Set(fmt.Sprintf("%d", id), actor, TTL)
 }
@@ -114,14 +117,16 @@ func (h *Handler) AddActor(c *gin.Context) {
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/ [get]
-func (h *Handler) GetAllActors(c *gin.Context) {
+func (h *Handler) GetAllActors(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("GetAllActors")
+
 	actors, err := h.actorsService.GetAllActors(context.TODO())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "GetAllActors",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
@@ -132,13 +137,13 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 			"handler": "GetAllActors",
 			"issue":   "failed marshaling response body",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.Header().Add("Content-Type", "application/json")
-	c.Writer.Write(response)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(response)
 
 	for _, a := range actors {
 		Cache.Set(fmt.Sprintf("%d", a.ID), a, TTL)
@@ -156,14 +161,16 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/id [get]
-func (h *Handler) GetActor(c *gin.Context) {
-	id, err := getIdFromRequest(c.Request)
+func (h *Handler) GetActor(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("GetActor")
+
+	id, err := getIdFromRequest(r)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "GetActor",
 			"issue":   "failed reading request param",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
@@ -179,12 +186,16 @@ func (h *Handler) GetActor(c *gin.Context) {
 					"handler": "GetActor",
 					"issue":   issue,
 				}).Error(err)
-				c.Writer.WriteHeader(http.StatusBadRequest)
+				w.WriteHeader(http.StatusBadRequest)
+
 				return
 			}
-			c.Writer.WriteHeader(http.StatusInternalServerError)
+
+			w.WriteHeader(http.StatusInternalServerError)
+
 			return
 		}
+
 		Cache.Set(fmt.Sprintf("%d", id), actor, TTL)
 	} else {
 		fmt.Println("actor got from cache")
@@ -192,13 +203,13 @@ func (h *Handler) GetActor(c *gin.Context) {
 
 	response, err := json.Marshal(actor)
 	if err != nil {
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.Header().Add("Content-Type", "application/json")
-	c.Writer.Write(response)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(response)
 }
 
 // Auth godoc
@@ -213,27 +224,27 @@ func (h *Handler) GetActor(c *gin.Context) {
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/id [put]
-func (h *Handler) UpdateActor(c *gin.Context) {
-	id, err := getIdFromRequest(c.Request)
+func (h *Handler) UpdateActor(w http.ResponseWriter, r *http.Request) {
+	id, err := getIdFromRequest(r)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
 			"issue":   "failed reading request param",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
 
 	var src domain.UpdateActorInfo
 
-	decoder := json.NewDecoder(c.Request.Body)
-	if err := decoder.Decode(&src); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err = decoder.Decode(&src); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
 			"issue":   "bad request",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
@@ -245,7 +256,7 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 				"handler": "UpdateActor",
 				"issue":   issue,
 			}).Error(err)
-			c.Writer.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 
 			return
 		}
@@ -254,12 +265,12 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 			"handler": "UpdateActor",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 
 	if _, err := Cache.Get(fmt.Sprintf("%d", id)); err == nil {
 		Cache.Delete(fmt.Sprintf("%d", id))
@@ -277,14 +288,14 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/id [delete]
-func (h *Handler) DeleteActor(c *gin.Context) {
-	id, err := getIdFromRequest(c.Request)
+func (h *Handler) DeleteActor(w http.ResponseWriter, r *http.Request) {
+	id, err := getIdFromRequest(r)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "DeleteActor",
 			"issue":   "failed reading request param",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
@@ -297,7 +308,7 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 				"handler": "DeleteActor",
 				"issue":   issue,
 			}).Error(err)
-			c.Writer.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 
 			return
 		}
@@ -306,12 +317,13 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 			"handler": "DeleteActor",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 
 	if _, err := Cache.Get(fmt.Sprintf("%d", id)); err == nil {
 		Cache.Delete(fmt.Sprintf("%d", id))
@@ -328,7 +340,7 @@ func getIdFromRequest(r *http.Request) (int64, error) {
 	}
 
 	if id == 0 {
-		return 0, errors.New("actor id can't be 0")
+		return 0, errors.New("id can't be 0")
 	}
 
 	return id, nil
