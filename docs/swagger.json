@@ -4,7 +4,7 @@
         "contact": {}
     },
     "paths": {
-        "/": {
+        "/actors": {
             "get": {
                 "description": "get all actors info",
                 "consumes": [
@@ -95,7 +95,7 @@
                 }
             }
         },
-        "/id": {
+        "/actors/id": {
             "get": {
                 "description": "Get actor info by id",
                 "consumes": [

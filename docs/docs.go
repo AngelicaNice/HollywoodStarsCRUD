@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/": {
+        "/actors": {
             "get": {
                 "description": "get all actors info",
                 "consumes": [
@@ -106,7 +106,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/id": {
+        "/actors/id": {
             "get": {
                 "description": "Get actor info by id",
                 "consumes": [

@@ -34,7 +34,7 @@ definitions:
 info:
   contact: {}
 paths:
-  /:
+  /actors:
     get:
       consumes:
       - application/json
@@ -94,7 +94,7 @@ paths:
       summary: Add actor
       tags:
       - actor
-  /id:
+  /actors/id:
     delete:
       consumes:
       - application/json

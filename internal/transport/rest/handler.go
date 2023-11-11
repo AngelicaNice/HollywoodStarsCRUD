@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/AngelicaNice/HollywoodStarsCRUD/docs"
@@ -44,24 +45,44 @@ func (h *Handler) InitRouter() *mux.Router {
 	r.Use(loggingMiddleware)
 
 	api := r.PathPrefix("/actors").Subrouter()
-	{
-		a := api.HandleFunc("/id/{id:[0-9]+}", h.GetActor).Methods(http.MethodGet)
-		s, _ := a.GetPathTemplate()
-		fmt.Println(s)
-		a = api.HandleFunc("/id/{id:[0-9]+}", h.UpdateActor).Methods(http.MethodPut)
-		s, _ = a.GetPathRegexp()
-		fmt.Println(s)
-		a = api.HandleFunc("/id/{id:[0-9]+}", h.DeleteActor).Methods(http.MethodDelete)
-		s, _ = a.GetPathRegexp()
-		fmt.Println(s)
-		a = api.HandleFunc("", h.AddActor).Methods(http.MethodPost)
-		s, _ = a.GetPathRegexp()
-		fmt.Println(s)
-		a = api.HandleFunc("", h.GetAllActors).Methods(http.MethodGet)
-		s, _ = a.GetPathRegexp()
-		fmt.Println(s)
+	{ //     /{id:[0-9]+}
+		api.HandleFunc("", h.AddActor).Methods(http.MethodPost)
+		api.HandleFunc("", h.GetAllActors).Methods(http.MethodGet)
+		api.HandleFunc("/id", h.GetActor).Methods(http.MethodGet)
+		api.HandleFunc("/id", h.UpdateActor).Methods(http.MethodPut)
+		api.HandleFunc("/id", h.DeleteActor).Methods(http.MethodDelete)
 	}
-	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
+	err := r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		pathTemplate, err := route.GetPathTemplate()
+		if err == nil {
+			fmt.Println("ROUTE:", pathTemplate)
+		}
+		pathRegexp, err := route.GetPathRegexp()
+		if err == nil {
+			fmt.Println("Path regexp:", pathRegexp)
+		}
+		queriesTemplates, err := route.GetQueriesTemplates()
+		if err == nil {
+			fmt.Println("Queries templates:", strings.Join(queriesTemplates, ","))
+		}
+		queriesRegexps, err := route.GetQueriesRegexp()
+		if err == nil {
+			fmt.Println("Queries regexps:", strings.Join(queriesRegexps, ","))
+		}
+		methods, err := route.GetMethods()
+		if err == nil {
+			fmt.Println("Methods:", strings.Join(methods, ","))
+		}
+		fmt.Println()
+
+		return nil
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler).Methods(http.MethodGet)
 
 	return r
 }
@@ -76,7 +97,7 @@ func (h *Handler) InitRouter() *mux.Router {
 //	@Param			input body domain.Actor true "actor's info"
 //	@Success		201	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/ [post]
+//	@Router			/actors [post]
 func (h *Handler) AddActor(w http.ResponseWriter, r *http.Request) {
 	var actor domain.Actor
 
@@ -116,7 +137,7 @@ func (h *Handler) AddActor(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/ [get]
+//	@Router			/actors [get]
 func (h *Handler) GetAllActors(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("GetAllActors")
 
@@ -160,7 +181,7 @@ func (h *Handler) GetAllActors(w http.ResponseWriter, r *http.Request) {
 //	@Param			id	query	int	false 	"int valid"	minimum(1)
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [get]
+//	@Router			/actors/id [get]
 func (h *Handler) GetActor(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("GetActor")
 
@@ -223,7 +244,7 @@ func (h *Handler) GetActor(w http.ResponseWriter, r *http.Request) {
 //	@Param			input body domain.UpdateActorInfo true "new actor's info"
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [put]
+//	@Router			/actors/id [put]
 func (h *Handler) UpdateActor(w http.ResponseWriter, r *http.Request) {
 	id, err := getIdFromRequest(r)
 	if err != nil {
@@ -287,7 +308,7 @@ func (h *Handler) UpdateActor(w http.ResponseWriter, r *http.Request) {
 //	@Param			id	query	int	false 	"int valid"	minimum(1)
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [delete]
+//	@Router			/actors/id [delete]
 func (h *Handler) DeleteActor(w http.ResponseWriter, r *http.Request) {
 	id, err := getIdFromRequest(r)
 	if err != nil {
@@ -340,7 +361,7 @@ func getIdFromRequest(r *http.Request) (int64, error) {
 	}
 
 	if id == 0 {
-		return 0, errors.New("id can't be 0")
+		return 0, errors.New("actor id can't be 0")
 	}
 
 	return id, nil
