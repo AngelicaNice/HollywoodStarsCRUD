@@ -26,6 +26,7 @@ func CreateDBConnection(info ConnectionInfo) (*sql.DB, error) {
 	if err = db.Ping(); err != nil {
 		return nil, err
 	}
+
 	fmt.Println("CONNECTED")
 
 	return db, nil

@@ -4,9 +4,7 @@ import (
 	"errors"
 )
 
-var (
-	ActorNotFound = errors.New("actor not found")
-)
+var ErrActorNotFound = errors.New("actor not found")
 
 type Actor struct {
 	ID         int64   `json:"id"`

@@ -27,6 +27,7 @@ func NewConfig(folder string, filename string) (*Config, error) {
 
 	if err := envconfig.Process("db", &cfg.DB); err != nil {
 		log.WithField(".env", "wrong environment variables").Fatal(err)
+
 		return nil, err
 	}
 
@@ -36,11 +37,13 @@ func NewConfig(folder string, filename string) (*Config, error) {
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.WithField("config", "wrong config").Fatal(err)
+
 		return nil, err
 	}
 
 	if err := viper.Unmarshal(cfg); err != nil {
 		log.WithField("config", "wrong unmarshalling").Fatal(err)
+
 		return nil, err
 	}
 

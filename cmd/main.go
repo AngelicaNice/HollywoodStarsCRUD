@@ -33,6 +33,7 @@ func init() {
 
 // @host		localhost:8080
 // @BasePath	/actors
+
 func main() {
 	cfg, err := config.NewConfig(CONFIG_DIR, CONFIG_FILE)
 	if err != nil {

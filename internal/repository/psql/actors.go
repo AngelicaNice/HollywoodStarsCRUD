@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
+	_ "github.com/lib/pq"
 )
 
 type Actors struct {
@@ -20,21 +21,15 @@ func NewActors(db *sql.DB) *Actors {
 	}
 }
 
-func (a *Actors) Create(ctx context.Context, actor domain.Actor) error {
+func (a *Actors) Create(ctx context.Context, actor domain.Actor) (int64, error) {
 	setColumns := make([]string, 0)
 	args := make([]interface{}, 0)
-	setColumns = append(setColumns, "name")
-	setColumns = append(setColumns, "surname")
-	setColumns = append(setColumns, "sex")
-	setColumns = append(setColumns, "birth_year")
-	setColumns = append(setColumns, "birth_place")
-	args = append(args, actor.Name)
-	args = append(args, actor.Surname)
-	args = append(args, actor.Sex)
-	args = append(args, actor.BirthYear)
-	args = append(args, actor.BirthPlace)
+
+	setColumns = append(setColumns, "name", "surname", "sex", "birth_year", "birth_place")
+	args = append(args, actor.Name, actor.Surname, actor.Sex, actor.BirthYear, actor.BirthPlace)
 	argId := 5
 	argIds := "$1, $2, $3, $4, $5"
+
 	if actor.RestYear != nil {
 		setColumns = append(setColumns, "rest_year")
 		args = append(args, *actor.RestYear)
@@ -48,11 +43,18 @@ func (a *Actors) Create(ctx context.Context, actor domain.Actor) error {
 		argId++
 		argIds = argIds + ", $" + strconv.Itoa(argId)
 	}
-	setQuery := strings.Join(setColumns, ", ")
-	query := fmt.Sprintf("INSERT INTO actors (%s) values (%s)", setQuery, argIds)
-	_, err := a.db.Exec(query, args...)
 
-	return err
+	setQuery := strings.Join(setColumns, ", ")
+	query := fmt.Sprintf("INSERT INTO actors (%s) values (%s) RETURNING ID", setQuery, argIds)
+
+	var id int64
+
+	err := a.db.QueryRow(query, args...).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, err
 }
 
 func (a *Actors) GetByID(ctx context.Context, id int64) (domain.Actor, error) {
@@ -60,8 +62,9 @@ func (a *Actors) GetByID(ctx context.Context, id int64) (domain.Actor, error) {
 	err := a.db.QueryRow("SELECT id, name, surname, sex, birth_year, birth_place, rest_year, language FROM actors WHERE id=$1", id).
 		Scan(&actor.ID, &actor.Name, &actor.Surname, &actor.Sex, &actor.BirthYear,
 			&actor.BirthPlace, &actor.RestYear, &actor.Language)
+
 	if err == sql.ErrNoRows {
-		return actor, domain.ActorNotFound
+		return actor, domain.ErrActorNotFound
 	}
 
 	return actor, err
@@ -69,11 +72,16 @@ func (a *Actors) GetByID(ctx context.Context, id int64) (domain.Actor, error) {
 
 func (a *Actors) GetAllActors(ctx context.Context) ([]domain.Actor, error) {
 	rows, err := a.db.Query("SELECT * FROM actors")
+	if err == nil {
+		defer rows.Close()
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	actors := make([]domain.Actor, 0)
+
 	for rows.Next() {
 		var actor domain.Actor
 		if err := rows.Scan(&actor.ID, &actor.Name, &actor.Surname, &actor.Sex, &actor.BirthYear, &actor.BirthPlace, &actor.RestYear, &actor.Language); err != nil {
@@ -124,19 +132,22 @@ func (a *Actors) Update(ctx context.Context, id int64, inp domain.UpdateActorInf
 	setQuery := strings.Join(setValues, ", ")
 
 	query := fmt.Sprintf("UPDATE actors SET %s WHERE id=$%d", setQuery, argId)
-	args = append(args, id)
 
+	args = append(args, id)
 	_, err := a.db.Exec(query, args...)
+
 	if err == sql.ErrNoRows {
-		return domain.ActorNotFound
+		return domain.ErrActorNotFound
 	}
+
 	return err
 }
 
 func (a *Actors) Delete(ctx context.Context, id int64) error {
 	_, err := a.db.Exec("DELETE FROM actors WHERE id=$1", id)
 	if err == sql.ErrNoRows {
-		return domain.ActorNotFound
+		return domain.ErrActorNotFound
 	}
+
 	return err
 }

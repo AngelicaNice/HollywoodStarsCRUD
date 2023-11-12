@@ -5,24 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-
-	log "github.com/sirupsen/logrus"
-
 	"net/http"
 	"strconv"
 
-	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
-
-	"github.com/gin-gonic/gin"
-
 	_ "github.com/AngelicaNice/HollywoodStarsCRUD/docs"
+	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	swaggerFiles "github.com/swaggo/files"     // swagger embed files
 	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
 )
 
 type Actors interface {
-	Create(ctx context.Context, actor domain.Actor) error
+	Create(ctx context.Context, actor domain.Actor) (int64, error)
 	GetByID(ctx context.Context, id int64) (domain.Actor, error)
 	GetAllActors(ctx context.Context) ([]domain.Actor, error)
 	Update(ctx context.Context, id int64, info domain.UpdateActorInfo) error
@@ -54,6 +49,7 @@ func (h *Handler) InitRouter() *gin.Engine {
 		api.Handle(http.MethodDelete, "/id", h.DeleteActor)
 	}
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	return r
 }
 
@@ -69,35 +65,26 @@ func (h *Handler) InitRouter() *gin.Engine {
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/ [post]
 func (h *Handler) AddActor(c *gin.Context) {
-	reqBytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"handler": "AddActor",
-			"issue":   "failed reading request body",
-		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var actor domain.Actor
-	if err = json.Unmarshal(reqBytes, &actor); err != nil {
+
+	decoder := json.NewDecoder(c.Request.Body)
+	if err := decoder.Decode(&actor); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
 			"issue":   "failed unmarshalling request body",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
+
 		return
 	}
 
-	fmt.Println(actor)
-
-	err = h.actorsService.Create(context.TODO(), actor)
-	if err != nil {
+	if _, err := h.actorsService.Create(context.TODO(), actor); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
 			"issue":   "internal error",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
@@ -122,6 +109,7 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 			"issue":   "internal error",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
@@ -132,6 +120,7 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 			"issue":   "failed marshaling response body",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
@@ -158,28 +147,32 @@ func (h *Handler) GetActor(c *gin.Context) {
 			"issue":   "failed reading request param",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
+
 		return
 	}
 
 	actor, err := h.actorsService.GetByID(context.TODO(), id)
 	if err != nil {
-		if errors.Is(err, domain.ActorNotFound) {
+		if errors.Is(err, domain.ErrActorNotFound) {
 			issue := fmt.Sprintf("actor with id=%d not found", id)
 			log.WithFields(log.Fields{
 				"handler": "GetActor",
 				"issue":   issue,
 			}).Error(err)
 			c.Writer.WriteHeader(http.StatusBadRequest)
+
 			return
 		}
 
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
 	response, err := json.Marshal(actor)
 	if err != nil {
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
@@ -207,45 +200,41 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 			"issue":   "failed reading request param",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
-		return
-	}
 
-	reqBytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"handler": "UpdateActor",
-			"issue":   "failed reading request body",
-		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	var src domain.UpdateActorInfo
-	if err = json.Unmarshal(reqBytes, &src); err != nil {
+
+	decoder := json.NewDecoder(c.Request.Body)
+	if err := decoder.Decode(&src); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
-			"issue":   "failed unmarshalling request body",
+			"issue":   "bad request",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
+
 		return
 	}
 
-	err = h.actorsService.Update(context.TODO(), id, src)
-	if err != nil {
-		if errors.Is(err, domain.ActorNotFound) {
+	if err = h.actorsService.Update(context.TODO(), id, src); err != nil {
+		if errors.Is(err, domain.ErrActorNotFound) {
 			issue := fmt.Sprintf("actor with id=%d not found", id)
 			log.WithFields(log.Fields{
 				"handler": "UpdateActor",
 				"issue":   issue,
 			}).Error(err)
 			c.Writer.WriteHeader(http.StatusBadRequest)
+
 			return
 		}
+
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
 			"issue":   "internal error",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
@@ -271,25 +260,29 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 			"issue":   "failed reading request param",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)
+
 		return
 	}
 
 	err = h.actorsService.Delete(context.TODO(), id)
 	if err != nil {
-		if errors.Is(err, domain.ActorNotFound) {
+		if errors.Is(err, domain.ErrActorNotFound) {
 			issue := fmt.Sprintf("actor with id=%d not found", id)
 			log.WithFields(log.Fields{
 				"handler": "DeleteActor",
 				"issue":   issue,
 			}).Error(err)
 			c.Writer.WriteHeader(http.StatusBadRequest)
+
 			return
 		}
+
 		log.WithFields(log.Fields{
 			"handler": "DeleteActor",
 			"issue":   "internal error",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
@@ -299,6 +292,7 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 func getIdFromRequest(r *http.Request) (int64, error) {
 	param := r.URL.RawQuery
 	param = param[3:]
+
 	id, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
 		return 0, err
