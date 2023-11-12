@@ -1,15 +1,10 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "API server for HollywoodStars Application.",
-        "title": "Swagger HollywoodStars App API",
-        "contact": {},
-        "version": "1.0"
+        "contact": {}
     },
-    "host": "localhost:8080",
-    "basePath": "/actors",
     "paths": {
-        "/": {
+        "/actors": {
             "get": {
                 "description": "get all actors info",
                 "consumes": [
@@ -100,7 +95,7 @@
                 }
             }
         },
-        "/id": {
+        "/actors/id": {
             "get": {
                 "description": "Get actor info by id",
                 "consumes": [

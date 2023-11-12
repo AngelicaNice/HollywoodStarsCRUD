@@ -7,14 +7,20 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	_ "github.com/AngelicaNice/HollywoodStarsCRUD/docs"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
-	"github.com/gin-gonic/gin"
+	"github.com/AngelicaNice/TTLCache/cache"
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
-	swaggerFiles "github.com/swaggo/files"     // swagger embed files
-	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
+	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+var Cache = cache.New()
+
+const TTL = 15 * time.Second
 
 type Actors interface {
 	Create(ctx context.Context, actor domain.Actor) (int64, error)
@@ -34,21 +40,49 @@ func NewHandler(a Actors) *Handler {
 	}
 }
 
-func (h *Handler) InitRouter() *gin.Engine {
-	r := gin.Default()
+func (h *Handler) InitRouter() *mux.Router {
+	r := mux.NewRouter()
+	r.Use(loggingMiddleware)
 
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
-
-	api := r.Group("/actors")
-	{
-		api.Handle(http.MethodPost, "", h.AddActor)
-		api.Handle(http.MethodGet, "", h.GetAllActors)
-		api.Handle(http.MethodGet, "/id", h.GetActor)
-		api.Handle(http.MethodPut, "/id", h.UpdateActor)
-		api.Handle(http.MethodDelete, "/id", h.DeleteActor)
+	api := r.PathPrefix("/actors").Subrouter()
+	{ //     /{id:[0-9]+}
+		api.HandleFunc("", h.AddActor).Methods(http.MethodPost)
+		api.HandleFunc("", h.GetAllActors).Methods(http.MethodGet)
+		api.HandleFunc("/id", h.GetActor).Methods(http.MethodGet)
+		api.HandleFunc("/id", h.UpdateActor).Methods(http.MethodPut)
+		api.HandleFunc("/id", h.DeleteActor).Methods(http.MethodDelete)
 	}
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	err := r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		pathTemplate, err := route.GetPathTemplate()
+		if err == nil {
+			fmt.Println("ROUTE:", pathTemplate)
+		}
+		pathRegexp, err := route.GetPathRegexp()
+		if err == nil {
+			fmt.Println("Path regexp:", pathRegexp)
+		}
+		queriesTemplates, err := route.GetQueriesTemplates()
+		if err == nil {
+			fmt.Println("Queries templates:", strings.Join(queriesTemplates, ","))
+		}
+		queriesRegexps, err := route.GetQueriesRegexp()
+		if err == nil {
+			fmt.Println("Queries regexps:", strings.Join(queriesRegexps, ","))
+		}
+		methods, err := route.GetMethods()
+		if err == nil {
+			fmt.Println("Methods:", strings.Join(methods, ","))
+		}
+		fmt.Println()
+
+		return nil
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler).Methods(http.MethodGet)
 
 	return r
 }
@@ -63,32 +97,35 @@ func (h *Handler) InitRouter() *gin.Engine {
 //	@Param			input body domain.Actor true "actor's info"
 //	@Success		201	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/ [post]
-func (h *Handler) AddActor(c *gin.Context) {
+//	@Router			/actors [post]
+func (h *Handler) AddActor(w http.ResponseWriter, r *http.Request) {
 	var actor domain.Actor
 
-	decoder := json.NewDecoder(c.Request.Body)
+	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&actor); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
 			"issue":   "failed unmarshalling request body",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
 
-	if _, err := h.actorsService.Create(context.TODO(), actor); err != nil {
+	id, err := h.actorsService.Create(context.TODO(), actor)
+	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "AddActor",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
+
+	Cache.Set(fmt.Sprintf("%d", id), actor, TTL)
 }
 
 // Auth godoc
@@ -100,15 +137,17 @@ func (h *Handler) AddActor(c *gin.Context) {
 //	@Produce		json
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/ [get]
-func (h *Handler) GetAllActors(c *gin.Context) {
+//	@Router			/actors [get]
+func (h *Handler) GetAllActors(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("GetAllActors")
+
 	actors, err := h.actorsService.GetAllActors(context.TODO())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "GetAllActors",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
@@ -119,13 +158,17 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 			"handler": "GetAllActors",
 			"issue":   "failed marshaling response body",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.Header().Add("Content-Type", "application/json")
-	c.Writer.Write(response)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(response)
+
+	for _, a := range actors {
+		Cache.Set(fmt.Sprintf("%d", a.ID), a, TTL)
+	}
 }
 
 // Auth godoc
@@ -138,46 +181,56 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 //	@Param			id	query	int	false 	"int valid"	minimum(1)
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [get]
-func (h *Handler) GetActor(c *gin.Context) {
-	id, err := getIdFromRequest(c.Request)
+//	@Router			/actors/id [get]
+func (h *Handler) GetActor(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("GetActor")
+
+	id, err := getIdFromRequest(r)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "GetActor",
 			"issue":   "failed reading request param",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
 
-	actor, err := h.actorsService.GetByID(context.TODO(), id)
+	actor, err := Cache.Get(fmt.Sprintf("%d", id))
+
 	if err != nil {
-		if errors.Is(err, domain.ErrActorNotFound) {
-			issue := fmt.Sprintf("actor with id=%d not found", id)
-			log.WithFields(log.Fields{
-				"handler": "GetActor",
-				"issue":   issue,
-			}).Error(err)
-			c.Writer.WriteHeader(http.StatusBadRequest)
+		actor, err = h.actorsService.GetByID(context.TODO(), id)
+		if err != nil {
+			if errors.Is(err, domain.ErrActorNotFound) {
+				issue := fmt.Sprintf("actor with id=%d not found", id)
+				log.WithFields(log.Fields{
+					"handler": "GetActor",
+					"issue":   issue,
+				}).Error(err)
+				w.WriteHeader(http.StatusBadRequest)
+
+				return
+			}
+
+			w.WriteHeader(http.StatusInternalServerError)
 
 			return
 		}
 
-		c.Writer.WriteHeader(http.StatusInternalServerError)
-
-		return
+		Cache.Set(fmt.Sprintf("%d", id), actor, TTL)
+	} else {
+		fmt.Println("actor got from cache")
 	}
 
 	response, err := json.Marshal(actor)
 	if err != nil {
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.Header().Add("Content-Type", "application/json")
-	c.Writer.Write(response)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(response)
 }
 
 // Auth godoc
@@ -191,28 +244,28 @@ func (h *Handler) GetActor(c *gin.Context) {
 //	@Param			input body domain.UpdateActorInfo true "new actor's info"
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [put]
-func (h *Handler) UpdateActor(c *gin.Context) {
-	id, err := getIdFromRequest(c.Request)
+//	@Router			/actors/id [put]
+func (h *Handler) UpdateActor(w http.ResponseWriter, r *http.Request) {
+	id, err := getIdFromRequest(r)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
 			"issue":   "failed reading request param",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
 
 	var src domain.UpdateActorInfo
 
-	decoder := json.NewDecoder(c.Request.Body)
-	if err := decoder.Decode(&src); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err = decoder.Decode(&src); err != nil {
 		log.WithFields(log.Fields{
 			"handler": "UpdateActor",
 			"issue":   "bad request",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
@@ -224,7 +277,7 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 				"handler": "UpdateActor",
 				"issue":   issue,
 			}).Error(err)
-			c.Writer.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 
 			return
 		}
@@ -233,12 +286,16 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 			"handler": "UpdateActor",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := Cache.Get(fmt.Sprintf("%d", id)); err == nil {
+		Cache.Delete(fmt.Sprintf("%d", id))
+	}
 }
 
 // Auth godoc
@@ -251,15 +308,15 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 //	@Param			id	query	int	false 	"int valid"	minimum(1)
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [delete]
-func (h *Handler) DeleteActor(c *gin.Context) {
-	id, err := getIdFromRequest(c.Request)
+//	@Router			/actors/id [delete]
+func (h *Handler) DeleteActor(w http.ResponseWriter, r *http.Request) {
+	id, err := getIdFromRequest(r)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"handler": "DeleteActor",
 			"issue":   "failed reading request param",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
@@ -272,7 +329,7 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 				"handler": "DeleteActor",
 				"issue":   issue,
 			}).Error(err)
-			c.Writer.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 
 			return
 		}
@@ -281,12 +338,17 @@ func (h *Handler) DeleteActor(c *gin.Context) {
 			"handler": "DeleteActor",
 			"issue":   "internal error",
 		}).Error(err)
-		c.Writer.WriteHeader(http.StatusInternalServerError)
+
+		w.WriteHeader(http.StatusInternalServerError)
 
 		return
 	}
 
-	c.Writer.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := Cache.Get(fmt.Sprintf("%d", id)); err == nil {
+		Cache.Delete(fmt.Sprintf("%d", id))
+	}
 }
 
 func getIdFromRequest(r *http.Request) (int64, error) {
