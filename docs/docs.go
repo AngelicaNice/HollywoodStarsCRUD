@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/": {
+        "/actors": {
             "get": {
                 "description": "get all actors info",
                 "consumes": [
@@ -106,7 +106,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/id": {
+        "/actors/id": {
             "get": {
                 "description": "Get actor info by id",
                 "consumes": [
@@ -260,6 +260,58 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/auth/sign-up": {
+            "post": {
+                "description": "Registration in system",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "SignUp",
+                "parameters": [
+                    {
+                        "description": "user's info",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SignUpInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -292,6 +344,27 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.SignUpInput": {
+            "type": "object",
+            "required": [
+                "email",
+                "nickname",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "nickname": {
+                    "type": "string",
+                    "minLength": 2
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
+                }
+            }
+        },
         "domain.UpdateActorInfo": {
             "type": "object",
             "properties": {
@@ -319,7 +392,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
-	BasePath:         "/actors",
+	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Swagger HollywoodStars App API",
 	Description:      "API server for HollywoodStars Application.",

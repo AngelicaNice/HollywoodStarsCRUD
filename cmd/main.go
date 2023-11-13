@@ -9,6 +9,7 @@ import (
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/repository/psql"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/service"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/rest"
+	hash "github.com/AngelicaNice/HollywoodStarsCRUD/pkg"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/pkg/database"
 
 	log "github.com/sirupsen/logrus"
@@ -32,7 +33,7 @@ func init() {
 //	@description	API server for HollywoodStars Application.
 
 // @host		localhost:8080
-// @BasePath	/actors
+// @BasePath	/
 
 func main() {
 	cfg, err := config.NewConfig(CONFIG_DIR, CONFIG_FILE)
@@ -56,7 +57,13 @@ func main() {
 
 	actorsRepo := psql.NewActors(db)
 	actorsService := service.NewActors(actorsRepo)
-	handler := rest.NewHandler(actorsService)
+
+	hasher := hash.NewSHA1Hasher("salt")
+
+	usersRepo := psql.NewUsers(db)
+	usersService := service.NewUsers(usersRepo, hasher)
+
+	handler := rest.NewHandler(actorsService, usersService)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),

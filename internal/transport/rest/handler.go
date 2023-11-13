@@ -24,13 +24,20 @@ type Actors interface {
 	Delete(ctx context.Context, id int64) error
 }
 
-type Handler struct {
-	actorsService Actors
+type Users interface {
+	Create(ctx context.Context, user domain.SignUpInput) (int64, error)
+	GetByID(ctx context.Context, id int64) (domain.User, error)
 }
 
-func NewHandler(a Actors) *Handler {
+type Handler struct {
+	actorsService Actors
+	usersService  Users
+}
+
+func NewHandler(a Actors, u Users) *Handler {
 	return &Handler{
 		actorsService: a,
+		usersService:  u,
 	}
 }
 
@@ -39,6 +46,11 @@ func (h *Handler) InitRouter() *gin.Engine {
 
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
+
+	auth := r.Group("/auth")
+	{
+		auth.Handle(http.MethodPost, "/sign-up", h.SignUp)
+	}
 
 	api := r.Group("/actors")
 	{
@@ -55,6 +67,54 @@ func (h *Handler) InitRouter() *gin.Engine {
 
 // Auth godoc
 //
+//	@Summary		SignUp
+//	@Description	Registration in system
+//	@Tags			user
+//	@Accept			json
+//	@Produce		json
+//	@Param			input body domain.SignUpInput true "user's info"
+//	@Success		201	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/auth/sign-up [post]
+func (h *Handler) SignUp(c *gin.Context) {
+	var user domain.SignUpInput
+
+	decoder := json.NewDecoder(c.Request.Body)
+	if err := decoder.Decode(&user); err != nil {
+		log.WithFields(log.Fields{
+			"handler": "SignUp",
+			"issue":   "failed unmarshalling request body",
+		}).Error(err)
+		c.Writer.WriteHeader(http.StatusBadRequest)
+
+		return
+	}
+
+	if err := user.Validate(); err != nil {
+		log.WithFields(log.Fields{
+			"handler": "SignUp",
+			"issue":   "wrong params",
+		}).Error(err)
+		c.Writer.WriteHeader(http.StatusBadRequest)
+
+		return
+	}
+
+	if _, err := h.usersService.Create(context.TODO(), user); err != nil {
+		log.WithFields(log.Fields{
+			"handler": "SignUp",
+			"issue":   "internal error",
+		}).Error(err)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
+
+		return
+	}
+
+	c.Writer.WriteHeader(http.StatusCreated)
+}
+
+// Auth godoc
+//
 //	@Summary		Add actor
 //	@Description	add actor info
 //	@Tags			actor
@@ -63,7 +123,7 @@ func (h *Handler) InitRouter() *gin.Engine {
 //	@Param			input body domain.Actor true "actor's info"
 //	@Success		201	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/ [post]
+//	@Router			/actors [post]
 func (h *Handler) AddActor(c *gin.Context) {
 	var actor domain.Actor
 
@@ -100,7 +160,7 @@ func (h *Handler) AddActor(c *gin.Context) {
 //	@Produce		json
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/ [get]
+//	@Router			/actors [get]
 func (h *Handler) GetAllActors(c *gin.Context) {
 	actors, err := h.actorsService.GetAllActors(context.TODO())
 	if err != nil {
@@ -138,7 +198,7 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 //	@Param			id	query	int	false 	"int valid"	minimum(1)
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [get]
+//	@Router			/actors/id [get]
 func (h *Handler) GetActor(c *gin.Context) {
 	id, err := getIdFromRequest(c.Request)
 	if err != nil {
@@ -191,7 +251,7 @@ func (h *Handler) GetActor(c *gin.Context) {
 //	@Param			input body domain.UpdateActorInfo true "new actor's info"
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [put]
+//	@Router			/actors/id [put]
 func (h *Handler) UpdateActor(c *gin.Context) {
 	id, err := getIdFromRequest(c.Request)
 	if err != nil {
@@ -251,7 +311,7 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 //	@Param			id	query	int	false 	"int valid"	minimum(1)
 //	@Success		200	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
-//	@Router			/id [delete]
+//	@Router			/actors/id [delete]
 func (h *Handler) DeleteActor(c *gin.Context) {
 	id, err := getIdFromRequest(c.Request)
 	if err != nil {

@@ -1,4 +1,4 @@
-basePath: /actors
+basePath: /
 definitions:
   domain.Actor:
     properties:
@@ -18,6 +18,21 @@ definitions:
         type: string
       surname:
         type: string
+    type: object
+  domain.SignUpInput:
+    properties:
+      email:
+        type: string
+      nickname:
+        minLength: 2
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - nickname
+    - password
     type: object
   domain.UpdateActorInfo:
     properties:
@@ -39,7 +54,7 @@ info:
   title: Swagger HollywoodStars App API
   version: "1.0"
 paths:
-  /:
+  /actors:
     get:
       consumes:
       - application/json
@@ -99,7 +114,7 @@ paths:
       summary: Add actor
       tags:
       - actor
-  /id:
+  /actors/id:
     delete:
       consumes:
       - application/json
@@ -202,4 +217,38 @@ paths:
       summary: Update actor by id
       tags:
       - actor
+  /auth/sign-up:
+    post:
+      consumes:
+      - application/json
+      description: Registration in system
+      parameters:
+      - description: user's info
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SignUpInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: SignUp
+      tags:
+      - user
 swagger: "2.0"
