@@ -61,7 +61,7 @@ func main() {
 	hasher := hash.NewSHA1Hasher("salt")
 
 	usersRepo := psql.NewUsers(db)
-	usersService := service.NewUsers(usersRepo, hasher)
+	usersService := service.NewUsers(usersRepo, hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
 
 	handler := rest.NewHandler(actorsService, usersService)
 

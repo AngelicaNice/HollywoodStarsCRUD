@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -20,6 +22,9 @@ type Config struct {
 	Server struct {
 		Port int `mapstructure:"port"`
 	} `mapstructure:"server"`
+	Auth struct {
+		TokenTtl time.Duration `mapstructure:"token_ttl"`
+	} `mapstructure:"auth"`
 }
 
 func NewConfig(folder string, filename string) (*Config, error) {

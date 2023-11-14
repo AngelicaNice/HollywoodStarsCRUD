@@ -41,9 +41,11 @@ func (u *Users) Create(ctx context.Context, user domain.User) (int64, error) {
 	return id, err
 }
 
-func (u *Users) GetByID(ctx context.Context, id int64) (domain.User, error) {
+func (u *Users) GetByCredentials(ctx context.Context, email string, hpass string) (domain.User, error) {
 	var user domain.User
-	err := u.db.QueryRow("SELECT id, nickname, email, password, registered_at FROM users WHERE id=$1", id).
+	err := u.db.QueryRow(
+		"SELECT id, nickname, email, password, registered_at FROM users WHERE email=$1 AND password=$2",
+		email, hpass).
 		Scan(&user.Id, &user.Nickname, &user.Email, &user.Password, &user.Registered_at)
 
 	if err == sql.ErrNoRows {

@@ -19,6 +19,17 @@ definitions:
       surname:
         type: string
     type: object
+  domain.SignInInput:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
   domain.SignUpInput:
     properties:
       email:
@@ -217,6 +228,40 @@ paths:
       summary: Update actor by id
       tags:
       - actor
+  /auth/sign-in:
+    get:
+      consumes:
+      - application/json
+      description: Login in system
+      parameters:
+      - description: user's info
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SignInInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+        "404":
+          description: Not Found
+          schema:
+            type: integer
+        "500":
+          description: Internal Server Error
+          schema:
+            type: integer
+      summary: SignIn
+      tags:
+      - user
   /auth/sign-up:
     post:
       consumes:
