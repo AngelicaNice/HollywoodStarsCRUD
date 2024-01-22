@@ -8,6 +8,7 @@ import (
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/config"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/repository/psql"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/service"
+	grpc_client "github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/grpc"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/rest"
 	hash "github.com/AngelicaNice/HollywoodStarsCRUD/pkg"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/pkg/database"
@@ -61,7 +62,13 @@ func main() {
 
 	usersRepo := psql.NewUsers(db)
 	tokensRepo := psql.NewTokens(db)
-	usersService := service.NewUsers(usersRepo, tokensRepo, hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
+
+	auditClient, err := grpc_client.NewClient(9000)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	usersService := service.NewUsers(usersRepo, tokensRepo, auditClient, hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
 
 	handler := rest.NewHandler(actorsService, usersService)
 
