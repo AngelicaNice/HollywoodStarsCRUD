@@ -41,15 +41,14 @@ func main() {
 		log.WithField("config | env", "wrong config | env").Fatal(err)
 	}
 
-	db, err := database.CreateDBConnection(
-		database.ConnectionInfo{
-			Host:     cfg.DB.Host,
-			Port:     cfg.DB.Port,
-			Username: cfg.DB.Username,
-			DBName:   cfg.DB.Name,
-			SSLMode:  cfg.DB.SSLMode,
-			Password: cfg.DB.Password,
-		})
+	db, err := database.CreateDBConnection(database.ConnectionInfo{
+		Host:     cfg.DB.Host,
+		Port:     cfg.DB.Port,
+		Username: cfg.DB.Username,
+		DBName:   cfg.DB.Name,
+		SSLMode:  cfg.DB.SSLMode,
+		Password: cfg.DB.Password,
+	})
 	if err != nil {
 		log.WithField("db connection", "failed").Fatal(err)
 	}
@@ -61,7 +60,8 @@ func main() {
 	hasher := hash.NewSHA1Hasher("salt")
 
 	usersRepo := psql.NewUsers(db)
-	usersService := service.NewUsers(usersRepo, hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
+	tokensRepo := psql.NewTokens(db)
+	usersService := service.NewUsers(usersRepo, tokensRepo, hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
 
 	handler := rest.NewHandler(actorsService, usersService)
 

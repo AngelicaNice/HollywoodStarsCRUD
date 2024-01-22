@@ -36,7 +36,8 @@ func authMiddleware(h *Handler) gin.HandlerFunc {
 
 			return
 		}
-
+		//ctx := context.WithValue(r.Context(), ctxUserID, userId)
+		//r = r.WithContext(ctx)
 		ctx := context.WithValue(c.Request.Context(), "id", userId)
 		c.Request = c.Request.WithContext(ctx)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
@@ -94,7 +95,7 @@ func (h *Handler) SignIn(c *gin.Context) {
 		return
 	}
 
-	token, err := h.usersService.GetToken(context.TODO(), user)
+	accessToken, refreshToken, err := h.usersService.GetToken(context.TODO(), user)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			handleNotFoundError(c.Writer, err)
@@ -113,8 +114,26 @@ func (h *Handler) SignIn(c *gin.Context) {
 
 	encoder := json.NewEncoder(c.Writer)
 	encoder.Encode(map[string]string{
-		"token": token,
+		"token": accessToken,
 	})
+
+	c.Writer.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token=%s; HttpOnly", refreshToken))
+	c.Writer.Header().Add("Content-Type", "application/json")
+}
+
+// Auth godoc
+//
+//	@Summary		Refresh
+//	@Description	Refresh token
+//	@Tags			user
+//	@Accept			json
+//	@Produce		json
+//	@Param			input body domain.SignInInput true "user's info"
+//	@Success		201	{integer} integer 1
+//	@Failure		400,404,500 {integer} integer 0
+//	@Router			/auth/sign-in [get]
+
+func (h *Handler) Refresh(c *gin.Context) {
 
 	c.Writer.Header().Add("Content-Type", "application/json")
 }

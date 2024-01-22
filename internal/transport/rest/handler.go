@@ -21,8 +21,10 @@ type Actors interface {
 
 type Users interface {
 	Create(ctx context.Context, user domain.SignUpInput) (int64, error)
-	GetToken(ctx context.Context, input domain.SignInInput) (string, error)
+	GetToken(ctx context.Context, input domain.SignInInput) (string, string, error)
 	ParseToken(ctx context.Context, token string) (int64, error)
+	RefreshToken(ctx context.Context, refreshToken string) (string, string, error)
+	GenerateTokens(ctx context.Context, id int64) (string, string, error)
 }
 
 type Handler struct {
@@ -47,6 +49,7 @@ func (h *Handler) InitRouter() *gin.Engine {
 	{
 		auth.Handle(http.MethodPost, "/sign-up", h.SignUp)
 		auth.Handle(http.MethodGet, "/sign-in", h.SignIn)
+		auth.Handle(http.MethodGet, "/refresh", h.Refresh)
 	}
 
 	api := r.Group("/actors").Use(authMiddleware(h))

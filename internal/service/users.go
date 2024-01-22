@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -21,19 +22,26 @@ type PasswordHasher interface {
 	Hash(password string) (string, error)
 }
 
+type TokensRepository interface {
+	Create(ctx context.Context, rt domain.RefreshToken) error
+	Get(ctx context.Context, refreshToken string) (domain.RefreshToken, error)
+}
+
 type Users struct {
 	repo     UsersRepository
+	trepo    TokensRepository
 	hash     PasswordHasher
 	secret   []byte
 	tokenTtl time.Duration
 }
 
-func NewUsers(repo UsersRepository, ph PasswordHasher, secret []byte, token_ttl time.Duration) *Users {
+func NewUsers(r UsersRepository, tr TokensRepository, ph PasswordHasher, s []byte, tttl time.Duration) *Users {
 	return &Users{
-		repo:     repo,
+		repo:     r,
+		trepo:    tr,
 		hash:     ph,
-		secret:   secret,
-		tokenTtl: token_ttl,
+		secret:   s,
+		tokenTtl: tttl,
 	}
 }
 
@@ -51,28 +59,63 @@ func (u *Users) Create(ctx context.Context, user domain.SignUpInput) (int64, err
 	})
 }
 
-func (u *Users) GetToken(ctx context.Context, input domain.SignInInput) (string, error) {
-	hp, err := u.hash.Hash(input.Password)
+func (u *Users) GetToken(ctx context.Context, input domain.SignInInput) (string, string, error) {
+	hpass, err := u.hash.Hash(input.Password)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	user, err := u.repo.GetByCredentials(ctx, input.Email, hp)
+	user, err := u.repo.GetByCredentials(ctx, input.Email, hpass)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", domain.ErrUserNotFound
+			return "", "", domain.ErrUserNotFound
 		}
 
-		return "", err
+		return "", "", err
 	}
 
+	return u.GenerateTokens(ctx, user.Id)
+}
+
+func (u *Users) GenerateTokens(ctx context.Context, userId int64) (string, string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-		Subject:   strconv.Itoa(int(user.Id)),
+		Subject:   strconv.Itoa(int(userId)),
 		IssuedAt:  time.Now().Unix(),
 		ExpiresAt: time.Now().Add(u.tokenTtl).Unix(),
 	})
 
-	return token.SignedString(u.secret)
+	accessToken, err := token.SignedString(u.secret)
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshToken, err := newRefreshToken()
+	if err != nil {
+		return "", "", err
+	}
+
+	if err := u.trepo.Create(ctx, domain.RefreshToken{
+		UserId:    userId,
+		Token:     refreshToken,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 30),
+	}); err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+func newRefreshToken() (string, error) {
+	b := make([]byte, 32)
+
+	s := rand.NewSource(time.Now().Unix())
+	r := rand.New(s)
+
+	if _, err := r.Read(b); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", b), nil
 }
 
 func (u *Users) ParseToken(ctx context.Context, token string) (int64, error) {
@@ -83,7 +126,6 @@ func (u *Users) ParseToken(ctx context.Context, token string) (int64, error) {
 
 		return u.secret, nil
 	})
-
 	if err != nil {
 		return 0, err
 	}
@@ -108,4 +150,17 @@ func (u *Users) ParseToken(ctx context.Context, token string) (int64, error) {
 	}
 
 	return int64(id), nil
+}
+
+func (u *Users) RefreshToken(ctx context.Context, refreshToken string) (string, string, error) {
+	rtoken, err := u.trepo.Get(ctx, refreshToken)
+	if err != nil {
+		return "", "", err
+	}
+
+	if rtoken.ExpiresAt.Unix() < time.Now().Unix() {
+		return "", "", domain.ErrRefreshTokenExpired
+	}
+
+	return u.GenerateTokens(ctx, rtoken.UserId)
 }
