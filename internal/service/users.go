@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	audit "github.com/AngelicaNice/AuditLog/pkg/domain"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
 	"github.com/golang-jwt/jwt"
 )
@@ -27,21 +28,27 @@ type TokensRepository interface {
 	Get(ctx context.Context, refreshToken string) (domain.RefreshToken, error)
 }
 
-type Users struct {
-	repo     UsersRepository
-	trepo    TokensRepository
-	hash     PasswordHasher
-	secret   []byte
-	tokenTtl time.Duration
+type AuditClient interface {
+	SendLogRequest(ctx context.Context, req audit.LogItem) error
 }
 
-func NewUsers(r UsersRepository, tr TokensRepository, ph PasswordHasher, s []byte, tttl time.Duration) *Users {
+type Users struct {
+	repo        UsersRepository
+	trepo       TokensRepository
+	auditClient AuditClient
+	hash        PasswordHasher
+	secret      []byte
+	tokenTtl    time.Duration
+}
+
+func NewUsers(r UsersRepository, tr TokensRepository, ac AuditClient, ph PasswordHasher, s []byte, tttl time.Duration) *Users {
 	return &Users{
-		repo:     r,
-		trepo:    tr,
-		hash:     ph,
-		secret:   s,
-		tokenTtl: tttl,
+		repo:        r,
+		trepo:       tr,
+		auditClient: ac,
+		hash:        ph,
+		secret:      s,
+		tokenTtl:    tttl,
 	}
 }
 
@@ -51,12 +58,24 @@ func (u *Users) Create(ctx context.Context, user domain.SignUpInput) (int64, err
 		return 0, err
 	}
 
-	return u.repo.Create(ctx, domain.User{
+	id, err := u.repo.Create(ctx, domain.User{
 		Nickname:      user.Nickname,
 		Email:         user.Email,
 		Password:      pass,
 		Registered_at: time.Now(),
 	})
+	if err != nil {
+		return 0, err
+	}
+
+	err = u.auditClient.SendLogRequest(ctx, audit.LogItem{
+		Action:    audit.ACTION_REGISTER,
+		Entity:    audit.ENTITY_USER,
+		EntityID:  id,
+		Timestamp: time.Now(),
+	})
+
+	return id, err
 }
 
 func (u *Users) GetToken(ctx context.Context, input domain.SignInInput) (string, string, error) {
