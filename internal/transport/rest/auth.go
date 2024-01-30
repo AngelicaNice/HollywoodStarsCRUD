@@ -68,16 +68,18 @@ func (h *Handler) SignUp(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			input body domain.SignInInput true "user's info"
-//	@Success		201	{integer} integer 1
-//	@Failure		400,404,500 {integer} integer 0
-//	@Router			/auth/sign-in [get]
+//	@Success 		200 {string} string "token"
+//	@Failure 		400,404 {object} error
+//	@Failure 		500 {object} 	 error
+//	@Failure 		default {object} error
+//	@Router			/auth/sign-in [post]
 func (h *Handler) SignIn(c *gin.Context) {
 	var user domain.SignInInput
 
 	decoder := json.NewDecoder(c.Request.Body)
 	if err := decoder.Decode(&user); err != nil {
 		log.WithFields(log.Fields{
-			"handler": "SignUp",
+			"handler": "SignIn",
 			"issue":   "failed unmarshalling request body",
 		}).Error(err)
 		c.Writer.WriteHeader(http.StatusBadRequest)

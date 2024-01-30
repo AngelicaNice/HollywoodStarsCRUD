@@ -262,7 +262,7 @@ const docTemplate = `{
             }
         },
         "/auth/sign-in": {
-            "get": {
+            "post": {
                 "description": "Login in system",
                 "consumes": [
                     "application/json"
@@ -286,29 +286,27 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "token",
                         "schema": {
-                            "type": "integer"
+                            "type": "string"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "schema": {}
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "schema": {}
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "schema": {}
+                    },
+                    "default": {
+                        "description": "",
+                        "schema": {}
                     }
                 }
             }
