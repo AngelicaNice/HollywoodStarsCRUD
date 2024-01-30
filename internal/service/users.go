@@ -9,9 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	audit "github.com/AngelicaNice/AuditLog/pkg/domain"
+	//audit "github.com/AngelicaNice/AuditLog/pkg/domain"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/domain"
+	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/mq"
+	audit "github.com/AngelicaNice/auditlog_mq/pkg/domain"
 	"github.com/golang-jwt/jwt"
+	log "github.com/sirupsen/logrus"
 )
 
 type UsersRepository interface {
@@ -24,31 +27,31 @@ type PasswordHasher interface {
 }
 
 type TokensRepository interface {
-	Create(ctx context.Context, rt domain.RefreshToken) error
-	Get(ctx context.Context, refreshToken string) (domain.RefreshToken, error)
+	CreateToken(ctx context.Context, rt domain.RefreshToken) error
+	GetRefreshedToken(ctx context.Context, refreshToken string) (domain.RefreshToken, error)
 }
 
-type AuditClient interface {
-	SendLogRequest(ctx context.Context, req audit.LogItem) error
+type Publisher interface {
+	Publish(ctx context.Context, body []byte) error
 }
 
 type Users struct {
-	repo        UsersRepository
-	trepo       TokensRepository
-	auditClient AuditClient
-	hash        PasswordHasher
-	secret      []byte
-	tokenTtl    time.Duration
+	repo      UsersRepository
+	trepo     TokensRepository
+	publisher Publisher
+	hash      PasswordHasher
+	secret    []byte
+	tokenTtl  time.Duration
 }
 
-func NewUsers(r UsersRepository, tr TokensRepository, ac AuditClient, ph PasswordHasher, s []byte, tttl time.Duration) *Users {
+func NewUsers(r UsersRepository, tr TokensRepository, pb Publisher, ph PasswordHasher, s []byte, tttl time.Duration) *Users {
 	return &Users{
-		repo:        r,
-		trepo:       tr,
-		auditClient: ac,
-		hash:        ph,
-		secret:      s,
-		tokenTtl:    tttl,
+		repo:      r,
+		trepo:     tr,
+		publisher: pb,
+		hash:      ph,
+		secret:    s,
+		tokenTtl:  tttl,
 	}
 }
 
@@ -68,12 +71,26 @@ func (u *Users) Create(ctx context.Context, user domain.SignUpInput) (int64, err
 		return 0, err
 	}
 
-	err = u.auditClient.SendLogRequest(ctx, audit.LogItem{
-		Action:    audit.ACTION_REGISTER,
-		Entity:    audit.ENTITY_USER,
+	logItem := audit.LogItem{
+		Action:    "ACTION_REGISTER",
+		Entity:    "ENTITY_USER",
 		EntityID:  id,
 		Timestamp: time.Now(),
-	})
+	}
+
+	fmt.Println("SRART SERIALIZING")
+
+	body, err := mq.Serialize(logItem)
+	if err != nil {
+		log.WithField("serialize", "wrong body")
+		return id, err
+	}
+
+	fmt.Println("SRART PUBLISHING")
+
+	if err := u.publisher.Publish(ctx, body); err != nil {
+		log.WithField("logs:", "unsuccessful log sending")
+	}
 
 	return id, err
 }
@@ -91,6 +108,23 @@ func (u *Users) GetToken(ctx context.Context, input domain.SignInInput) (string,
 		}
 
 		return "", "", err
+	}
+
+	logItem := audit.LogItem{
+		Action:    "ACTION_TOKEN_REQUEST",
+		Entity:    "ENTITY_USER",
+		EntityID:  user.Id,
+		Timestamp: time.Now(),
+	}
+
+	body, err := mq.Serialize(logItem)
+	if err != nil {
+		log.WithField("serialize to rabbitmq", "wrong body")
+		return u.GenerateTokens(ctx, user.Id)
+	}
+
+	if err = u.publisher.Publish(ctx, body); err != nil {
+		log.WithField("logs:", "unsuccessful log sending")
 	}
 
 	return u.GenerateTokens(ctx, user.Id)
@@ -113,7 +147,7 @@ func (u *Users) GenerateTokens(ctx context.Context, userId int64) (string, strin
 		return "", "", err
 	}
 
-	if err := u.trepo.Create(ctx, domain.RefreshToken{
+	if err := u.trepo.CreateToken(ctx, domain.RefreshToken{
 		UserId:    userId,
 		Token:     refreshToken,
 		ExpiresAt: time.Now().Add(time.Hour * 24 * 30),
@@ -172,13 +206,30 @@ func (u *Users) ParseToken(ctx context.Context, token string) (int64, error) {
 }
 
 func (u *Users) RefreshToken(ctx context.Context, refreshToken string) (string, string, error) {
-	rtoken, err := u.trepo.Get(ctx, refreshToken)
+	rtoken, err := u.trepo.GetRefreshedToken(ctx, refreshToken)
 	if err != nil {
 		return "", "", err
 	}
 
 	if rtoken.ExpiresAt.Unix() < time.Now().Unix() {
 		return "", "", domain.ErrRefreshTokenExpired
+	}
+
+	logItem := audit.LogItem{
+		Action:    "ACTION_REFRESH_TOKEN",
+		Entity:    "ENTITY_USER",
+		EntityID:  rtoken.UserId,
+		Timestamp: time.Now(),
+	}
+
+	body, err := mq.Serialize(logItem)
+	if err != nil {
+		log.WithField("serialize to rabbitmq", "wrong body")
+		return u.GenerateTokens(ctx, rtoken.UserId)
+	}
+
+	if err = u.publisher.Publish(ctx, body); err != nil {
+		log.WithField("logs:", "unsuccessful log sending")
 	}
 
 	return u.GenerateTokens(ctx, rtoken.UserId)

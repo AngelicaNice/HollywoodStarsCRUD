@@ -6,6 +6,7 @@ import (
 
 	audit "github.com/AngelicaNice/AuditLog/pkg/domain"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -19,7 +20,7 @@ func NewClient(port int) (*Client, error) {
 
 	addr := fmt.Sprintf(":%d", port)
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

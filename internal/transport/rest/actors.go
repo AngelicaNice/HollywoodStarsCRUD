@@ -16,16 +16,17 @@ import (
 // Auth godoc
 //
 //	@Summary		Add actor
+//	@Security 		ApiKeyAuth
 //	@Description	add actor info
 //	@Tags			actor
 //	@Accept			json
 //	@Produce		json
-//	@Param			input body domain.Actor true "actor's info"
+//	@Param			input body domain.ActorInput true "actor's info"
 //	@Success		201	{integer} integer 1
 //	@Failure		400,404,500 {integer} integer 0
 //	@Router			/actors [post]
 func (h *Handler) AddActor(c *gin.Context) {
-	var actor domain.Actor
+	var actor domain.ActorInput
 
 	decoder := json.NewDecoder(c.Request.Body)
 	if err := decoder.Decode(&actor); err != nil {
@@ -54,6 +55,7 @@ func (h *Handler) AddActor(c *gin.Context) {
 // Auth godoc
 //
 //	@Summary		Get all actors
+//	@Security 		ApiKeyAuth
 //	@Description	get all actors info
 //	@Tags			actor
 //	@Accept			json
@@ -91,6 +93,7 @@ func (h *Handler) GetAllActors(c *gin.Context) {
 // Auth godoc
 //
 //	@Summary		Get actor by id
+//	@Security 		ApiKeyAuth
 //	@Description	Get actor info by id
 //	@Tags			actor
 //	@Accept			json
@@ -143,6 +146,7 @@ func (h *Handler) GetActor(c *gin.Context) {
 // Auth godoc
 //
 //	@Summary		Update actor by id
+//	@Security 		ApiKeyAuth
 //	@Description	Update actor info by id
 //	@Tags			actor
 //	@Accept			json
@@ -204,6 +208,7 @@ func (h *Handler) UpdateActor(c *gin.Context) {
 // Auth godoc
 //
 //	@Summary		Delete actor by id
+//	@Security 		ApiKeyAuth
 //	@Description	Delete actor info by id
 //	@Tags			actor
 //	@Accept			json

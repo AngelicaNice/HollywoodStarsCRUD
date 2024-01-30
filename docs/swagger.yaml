@@ -1,12 +1,10 @@
 basePath: /
 definitions:
-  domain.Actor:
+  domain.ActorInput:
     properties:
       birth_place:
         type: string
       birth_year:
-        type: integer
-      id:
         type: integer
       language:
         type: string
@@ -89,6 +87,8 @@ paths:
           description: Internal Server Error
           schema:
             type: integer
+      security:
+      - ApiKeyAuth: []
       summary: Get all actors
       tags:
       - actor
@@ -102,7 +102,7 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.Actor'
+          $ref: '#/definitions/domain.ActorInput'
       produces:
       - application/json
       responses:
@@ -122,6 +122,8 @@ paths:
           description: Internal Server Error
           schema:
             type: integer
+      security:
+      - ApiKeyAuth: []
       summary: Add actor
       tags:
       - actor
@@ -155,6 +157,8 @@ paths:
           description: Internal Server Error
           schema:
             type: integer
+      security:
+      - ApiKeyAuth: []
       summary: Delete actor by id
       tags:
       - actor
@@ -187,6 +191,8 @@ paths:
           description: Internal Server Error
           schema:
             type: integer
+      security:
+      - ApiKeyAuth: []
       summary: Get actor by id
       tags:
       - actor
@@ -225,11 +231,37 @@ paths:
           description: Internal Server Error
           schema:
             type: integer
+      security:
+      - ApiKeyAuth: []
       summary: Update actor by id
       tags:
       - actor
-  /auth/sign-in:
+  /auth/refresh:
     get:
+      consumes:
+      - application/json
+      description: Refresh token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: token
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema: {}
+        "404":
+          description: Not Found
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Refresh
+      tags:
+      - user
+  /auth/sign-in:
+    post:
       consumes:
       - application/json
       description: Login in system
@@ -243,22 +275,22 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "200":
+          description: token
           schema:
-            type: integer
+            type: string
         "400":
           description: Bad Request
-          schema:
-            type: integer
+          schema: {}
         "404":
           description: Not Found
-          schema:
-            type: integer
+          schema: {}
         "500":
           description: Internal Server Error
-          schema:
-            type: integer
+          schema: {}
+        default:
+          description: ""
+          schema: {}
       summary: SignIn
       tags:
       - user
@@ -296,4 +328,9 @@ paths:
       summary: SignUp
       tags:
       - user
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

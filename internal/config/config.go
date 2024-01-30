@@ -25,6 +25,10 @@ type Config struct {
 	Auth struct {
 		TokenTtl time.Duration `mapstructure:"token_ttl"`
 	} `mapstructure:"auth"`
+	MQ struct {
+		URL  string `mapstructure:"url"`
+		Name string `mapstructure:"name"`
+	} `mapstructure:"mq"`
 }
 
 func NewConfig(folder string, filename string) (*Config, error) {

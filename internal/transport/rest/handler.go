@@ -12,7 +12,7 @@ import (
 )
 
 type Actors interface {
-	Create(ctx context.Context, actor domain.Actor) (int64, error)
+	Create(ctx context.Context, actor domain.ActorInput) (int64, error)
 	GetByID(ctx context.Context, id int64) (domain.Actor, error)
 	GetAllActors(ctx context.Context) ([]domain.Actor, error)
 	Update(ctx context.Context, id int64, info domain.UpdateActorInfo) error
@@ -48,7 +48,7 @@ func (h *Handler) InitRouter() *gin.Engine {
 	auth := r.Group("/auth")
 	{
 		auth.Handle(http.MethodPost, "/sign-up", h.SignUp)
-		auth.Handle(http.MethodGet, "/sign-in", h.SignIn)
+		auth.Handle(http.MethodPost, "/sign-in", h.SignIn)
 		auth.Handle(http.MethodGet, "/refresh", h.Refresh)
 	}
 

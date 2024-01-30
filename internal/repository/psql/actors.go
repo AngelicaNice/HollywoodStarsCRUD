@@ -21,7 +21,7 @@ func NewActors(db *sql.DB) *Actors {
 	}
 }
 
-func (a *Actors) Create(ctx context.Context, actor domain.Actor) (int64, error) {
+func (a *Actors) Create(ctx context.Context, actor domain.ActorInput) (int64, error) {
 	setColumns := make([]string, 0)
 	args := make([]interface{}, 0)
 

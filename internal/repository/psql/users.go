@@ -49,7 +49,7 @@ func (u *Users) GetByCredentials(ctx context.Context, email string, hpass string
 		Scan(&user.Id, &user.Nickname, &user.Email, &user.Password, &user.Registered_at)
 
 	if err == sql.ErrNoRows {
-		return user, domain.ErrActorNotFound
+		return user, domain.ErrUserNotFound
 	}
 
 	return user, err

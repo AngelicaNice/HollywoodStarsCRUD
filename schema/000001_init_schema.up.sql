@@ -24,6 +24,14 @@ CREATE TABLE users (
   registered_at timestamp   NOT NULL DEFAULT (now())
 );
 
+CREATE TABLE refresh_tokens
+(
+    id         serial                                      not null unique,
+    user_id    int references users (id) on delete cascade not null,
+    token      varchar(255)                                not null unique,
+    expires_at timestamp                                   not null
+);
+
 CREATE INDEX ON actors (surname);
 
 ALTER TABLE follows ADD FOREIGN KEY (following_user_id) REFERENCES users (id);

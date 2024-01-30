@@ -17,6 +17,16 @@ type Actor struct {
 	Language   *string `json:"language"`
 }
 
+type ActorInput struct {
+	Name       string  `json:"name"`
+	Surname    string  `json:"surname"`
+	Sex        string  `json:"sex"`
+	BirthYear  int     `json:"birth_year"`
+	BirthPlace string  `json:"birth_place"`
+	RestYear   *int    `json:"rest_year"`
+	Language   *string `json:"language"`
+}
+
 type UpdateActorInfo struct {
 	Name     *string `json:"name"`
 	Surname  *string `json:"surname"`

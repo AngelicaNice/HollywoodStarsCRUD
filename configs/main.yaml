@@ -3,3 +3,7 @@ server:
 
 auth:
   token_ttl: 15m
+
+mq:
+  url: amqp://guest:guest@amqp_container/ #172.24.0.3
+  name: logs

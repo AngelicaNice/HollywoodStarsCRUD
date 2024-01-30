@@ -7,7 +7,7 @@ import (
 )
 
 type ActorsRepository interface {
-	Create(ctx context.Context, actor domain.Actor) (int64, error)
+	Create(ctx context.Context, actor domain.ActorInput) (int64, error)
 	GetByID(ctx context.Context, id int64) (domain.Actor, error)
 	GetAllActors(ctx context.Context) ([]domain.Actor, error)
 	Update(ctx context.Context, id int64, info domain.UpdateActorInfo) error
@@ -24,7 +24,7 @@ func NewActors(repo ActorsRepository) *Actors {
 	}
 }
 
-func (a *Actors) Create(ctx context.Context, actor domain.Actor) (int64, error) {
+func (a *Actors) Create(ctx context.Context, actor domain.ActorInput) (int64, error) {
 	return a.repo.Create(ctx, actor)
 }
 

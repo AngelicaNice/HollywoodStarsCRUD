@@ -1,12 +1,16 @@
-version: "3.3"
+version: "3.8"
 
 services:
   app:
+    restart: always
     build: ./
     command: ./app
+    networks:
+      - microservice_network
     ports:
       - "8080:8080"
     depends_on:
+      - amqp_container
       - db
     environment:
       - DB_HOST=db
@@ -14,14 +18,34 @@ services:
       - DB_USERNAME=postgres
       - DB_NAME=postgres
       - DB_SSLMODE=disable
-      - DB_PASSWORD=goLANGn1nja
+      - DB_PASSWORD=postgres
 
   db:
     restart: always
     image: postgres:latest
+    networks:
+      - microservice_network
+    ports:
+      - "5432:5432"
     volumes:
       - ./.database/postgres/data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=goLANGn1nja
+      - POSTGRES_PASSWORD=postgres
+
+  amqp_container:
+    restart: always
+    image: rabbitmq:3-management-alpine
+    volumes:
+      - ./configs/myrabbit.conf:/etc/rabbitmq/rabbitmq.config
+    networks:
+      - microservice_network
     ports:
-      - "5432:5432"
+      # The standard AMQP protocol port
+      - '5672:5672'
+      # HTTP management UI
+      - '15672:15672'
+
+networks:
+  microservice_network:
+    driver: bridge
+    external: true

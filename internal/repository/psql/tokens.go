@@ -18,15 +18,15 @@ func NewTokens(db *sql.DB) *Tokens {
 	}
 }
 
-func (t *Tokens) Create(ctx context.Context, rt domain.RefreshToken) error {
+func (t *Tokens) CreateToken(ctx context.Context, rt domain.RefreshToken) error {
 	_, err := t.db.Exec(
-		"INSERT INTO refresh_tokens (id, user_id, token, expires_at) values ($1, $2, $3, $4)",
-		rt.Id, rt.UserId, rt.Token, rt.ExpiresAt)
+		"INSERT INTO refresh_tokens (user_id, token, expires_at) values ($1, $2, $3)",
+		rt.UserId, rt.Token, rt.ExpiresAt)
 
 	return err
 }
 
-func (t *Tokens) Get(ctx context.Context, token string) (domain.RefreshToken, error) {
+func (t *Tokens) GetRefreshedToken(ctx context.Context, token string) (domain.RefreshToken, error) {
 	var rt domain.RefreshToken
 	if err := t.db.QueryRow(
 		"SELECT id, user_id, token, expires_at FROM refresh_tokens WHERE token=$1", token).Scan(

@@ -17,6 +17,11 @@ const docTemplate = `{
     "paths": {
         "/actors": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "get all actors info",
                 "consumes": [
                     "application/json"
@@ -56,6 +61,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "add actor info",
                 "consumes": [
                     "application/json"
@@ -74,7 +84,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.Actor"
+                            "$ref": "#/definitions/domain.ActorInput"
                         }
                     }
                 ],
@@ -108,6 +118,11 @@ const docTemplate = `{
         },
         "/actors/id": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get actor info by id",
                 "consumes": [
                     "application/json"
@@ -156,6 +171,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Update actor info by id",
                 "consumes": [
                     "application/json"
@@ -213,6 +233,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Delete actor info by id",
                 "consumes": [
                     "application/json"
@@ -261,8 +286,43 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/sign-in": {
+        "/auth/refresh": {
             "get": {
+                "description": "Refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Refresh",
+                "responses": {
+                    "200": {
+                        "description": "token",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/auth/sign-in": {
+            "post": {
                 "description": "Login in system",
                 "consumes": [
                     "application/json"
@@ -286,29 +346,27 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "token",
                         "schema": {
-                            "type": "integer"
+                            "type": "string"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "schema": {}
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "schema": {}
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "schema": {}
+                    },
+                    "default": {
+                        "description": "",
+                        "schema": {}
                     }
                 }
             }
@@ -367,16 +425,13 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.Actor": {
+        "domain.ActorInput": {
             "type": "object",
             "properties": {
                 "birth_place": {
                     "type": "string"
                 },
                 "birth_year": {
-                    "type": "integer"
-                },
-                "id": {
                     "type": "integer"
                 },
                 "language": {
@@ -452,6 +507,13 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

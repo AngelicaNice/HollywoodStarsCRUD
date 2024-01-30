@@ -8,10 +8,10 @@ import (
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/config"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/repository/psql"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/service"
-	grpc_client "github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/grpc"
+	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/mq"
 	"github.com/AngelicaNice/HollywoodStarsCRUD/internal/transport/rest"
 	hash "github.com/AngelicaNice/HollywoodStarsCRUD/pkg"
-	"github.com/AngelicaNice/HollywoodStarsCRUD/pkg/database"
+	database "github.com/AngelicaNice/HollywoodStarsCRUD/pkg/database"
 
 	log "github.com/sirupsen/logrus"
 
@@ -35,6 +35,10 @@ func init() {
 
 // @host		localhost:8080
 // @BasePath	/
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 
 func main() {
 	cfg, err := config.NewConfig(CONFIG_DIR, CONFIG_FILE)
@@ -63,12 +67,22 @@ func main() {
 	usersRepo := psql.NewUsers(db)
 	tokensRepo := psql.NewTokens(db)
 
-	auditClient, err := grpc_client.NewClient(9000)
+	amqpConn, err := mq.CreateMQConnection(cfg.MQ.URL)
 	if err != nil {
-		log.Fatal(err)
+		log.WithField("rabbitmq", "failed to connect").Fatal(err)
 	}
 
-	usersService := service.NewUsers(usersRepo, tokensRepo, auditClient, hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
+	defer amqpConn.Close()
+
+	auditPublisher, err := mq.NewAuditPublisher(cfg, amqpConn)
+	if err != nil {
+		log.WithField("rabbitmq", "failed to open a channel").Fatal(err)
+	}
+
+	defer auditPublisher.CloseChan()
+
+	usersService := service.NewUsers(usersRepo, tokensRepo, auditPublisher,
+		hasher, []byte("sample secret"), cfg.Auth.TokenTtl)
 
 	handler := rest.NewHandler(actorsService, usersService)
 
